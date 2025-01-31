@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        table {
+            border-style: solid;
+            border-width: thin;
+        }
+        td {
+            border-style: solid;
+            border-width: thin;
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+<body>
+    <label for="rows" style="display:block">Rows (riadkov):</label>
+    <input id="rows" />
+    <br />
+    <label for="cols" style="display:block">Columns (stĺpcov):</label>
+    <input id="cols" />
+    <br />
+    <label for="probability" style="display:block">Probability of obstacle (pravdepodobnosť prekážky):</label>
+    <input id="probability" min="0" max="1" />
+    <br />
+    <input type="button" id="generateBtn" value="generate"/>
+    <input type="button" id="dijBtn" value="dij"/>
+    <table id="table">
+    </table>
+    <br />
+    </table>
+</body>
+<script>
+    const WALL = "grey";
+    const PATH_END = "red";
+    const PATH_START = "green";
+
+    const DIFF_PROPERTY = "background-color"; //name of property whichc is used to differentiate among type of cell
+    
+    document.addEventListener("onload", generateTopology())
+
+    /**
+     * Generate map with predefined obstacles.
+     * 
+     * Frequency of occurance of obstacles is defined by probability input field.
+     */
+    function generateTopology() {
+        let rowsCount = document.getElementById("rows").value;
+        if (!rowsCount) {
+            alert("Row number isn't specified. (Nie je špecifikovaný počet riadkov.)");
+            return
+        }
+        let colsCount = document.getElementById("cols").value; 
+        if (!colsCount) {
+            alert("Column number isn't specified. (Nie je špecifikovaný počet stĺpcov.)");
+            return
+        }
+
+        let tableEl = document.getElementById("table")
+        //vymaz tabulku
+        tableEl.innerHTML = "";
+
+        for (let rowIdx = 0; rowIdx < rowsCount; rowIdx++) {
+            let trEl = document.createElement("tr")
+            for (let colIdx = 0; colIdx < colsCount; colIdx++) {
+                let tdEl = document.createElement("td");
+                if (Math.random() < document.getElementById("probability").value) {
+                    tdEl.style.setProperty(DIFF_PROPERTY, WALL);
+                }
+                tdEl.addEventListener("click", (event) => {handleCellClick(tdEl, event)}, true)
+                trEl.appendChild(tdEl);
+            }
+            tableEl.appendChild(trEl);
+        }
+        console.log("generate");
+    }
+
+
+    /**
+     * Handle click event on table cell.
+     * 
+     * After simple click cell is transformed to wall or back to empty cell.
+     * Click with SHIFT transform cell to start of path.
+     * Click with CTRL transform cell to end of path.
+     * @param el
+     * @param event
+     */
+    function handleCellClick(el, event) { 
+        let newBeckgroundColor = "";
+        if (event.shiftKey) {
+            newBeckgroundColor = PATH_END;
+        } else if (event.ctrlKey) {
+            newBeckgroundColor = PATH_START;
+        } else if (!el.style.getPropertyValue(DIFF_PROPERTY)) {
+            newBeckgroundColor = WALL;
+        }
+        el.style.setProperty(DIFF_PROPERTY, newBeckgroundColor)
+    }
+
+    
+    document.getElementById("generateBtn")
+        .addEventListener("click", generateTopology);
+
+    document.getElementById("dijBtn")
+        .addEventListener("click", dijkstra);
+
+    
+    function dijkstra() {
+        const topology = [];
+        let rowIdx = 0;
+        let tblEl = document.getElementById("table");
+        let pathStart;
+        let pathEnd;
+        //create vertices from matrix (graph)
+        for (let row of tblEl.children) {
+            let columns = [];
+            let colIdx = 0;
+            for (let col of row.children) {
+                let vertex = new Vertex();
+                let cellType = col.style.getPropertyValue(DIFF_PROPERTY)
+                vertex.isAccessible = cellType !== WALL;
+                if (cellType === PATH_START) {
+                    pathStart = vertex; 
+                } else if (cellType === PATH_END) {
+                    pathEnd = vertex;
+                }
+                
+                vertex.row = rowIdx;
+                vertex.col = colIdx++;
+                vertex.elTd = col; //add reference to concrete table cell
+                columns.push(vertex);
+            }
+            rowIdx++;
+            topology.push(columns)
+        }
+        console.log(topology);
+
+
+        //check whether start and end are specified
+        if (!pathStart) {
+            alert("Zaciatok nie je definovany")
+            return
+        }
+        if (!pathEnd) {
+            alert("Koniec nie je definovany")
+            return
+        }
+        pathStart.distance = 0;
+        pathStart.isOnPath = true;
+        console.log("pathStart: ", pathStart);
+        console.log("pathEnd: ", pathEnd);
+        vertexexToProcess = new PriorityQueue();
+        vertexexToProcess.enqueue(pathStart);
+
+
+        //dijkstra algorithm
+        let targetReached = false;
+        while (!vertexexToProcess.isEmpty() && !targetReached) {
+            currentV = vertexexToProcess.dequeue();
+            console.log("Current vertex: " + currentV);
+            currentV.isProcessed = true;
+
+            //identify accessible neighbours            
+            let neighbours = [];
+            if (currentV.row - 1 >= 0) {
+                neighbours.push(topology[currentV.row - 1][currentV.col]);
+            }
+            if (currentV.row + 1 < topology.length) {
+                neighbours.push(topology[currentV.row + 1][currentV.col]);
+            }
+            if (currentV.col - 1 >= 0) {
+                neighbours.push(topology[currentV.row][currentV.col - 1]);
+            }
+            if (currentV.col + 1 < topology[0].length) {
+                neighbours.push(topology[currentV.row][currentV.col + 1]);
+            }
+            //:identify accessible neighbours
+
+            //resolve accessible neighbours
+            console.log(" Neighbours:");
+            for (let neighbour of neighbours) {
+                console.log("  -: " +  neighbour);
+                if (neighbour.isAccessible && !neighbour.isProcessed) {
+                    if (currentV.distance + 1 < neighbour.distance) {
+                        neighbour.distance = currentV.distance + 1;
+                        neighbour.predcessorRow = currentV.row;
+                        neighbour.predcessorCol = currentV.col;
+                        console.log("     found shorter path to: " +  neighbour);
+                        if (neighbour.row == pathEnd.row && neighbour.col == pathEnd.col) {
+                            targetReached = true;
+                        }
+                        vertexexToProcess.removeIf(v => v.col == neighbour.col && v.row == neighbour.row);
+                        vertexexToProcess.enqueue(neighbour);
+                    }
+                }
+            }
+        }
+
+        //reconstruct shorthest path
+        if (!targetReached) {
+            console.log("Target unreached");
+        } else {
+            console.log("Target reached :)");
+            //reconstruction of path
+            let vertexOnPath = topology[pathEnd.row][pathEnd.col];
+            while (!vertexOnPath.equals(pathStart)) {
+                vertexOnPath.isOnPath = true;
+                vertexOnPath = topology[vertexOnPath.predcessorRow][vertexOnPath.predcessorCol];
+            }
+        }
+
+        //draw path
+        for (let row = 0; row < topology.length; row++) {
+            let origin = "";
+            let path = "";
+            for(let col = 0; col < topology[row].length; col++) {
+                let v = topology[row][col];
+                if (v.isOnPath) {
+                    v.elTd.style.setProperty("border-color", "blue")
+                    v.elTd.style.setProperty("border-width", "3px")
+                } else {
+                    v.elTd.style.setProperty("border-color", "black")
+                    v.elTd.style.setProperty("border-width", "1px")
+                    
+                }
+            }
+        }
+        
+    }
+
+    /**
+     * Class for holding information about graph nodes (cells)
+     */
+    class Vertex {
+        isAccessible = false; //whether node is accessible; false if wall
+        isProcessed = false; //whether node was already processed (in Dijkstra algorithm meaning)
+        isOnPath = false;   // whether node is on shorthest path which was found
+        predcessorRow = -1;  //row num of previous node on shorthest path 
+        predcessorCol = -1;  //column num of previous on shorthest path
+        distance = Number.MAX_VALUE;  //shorthest distance to this vertice from start vertice
+        row = -1;  //row idx of cell which represents this vertice
+        col = -1; //column idx of cell which represents this vertice
+        elTd = null; //reference to td HTML element (for drawing path)
+
+        equals(vertex) {
+            return this.row === vertex.row && this.col === vertex.col;
+        }
+
+        toString() {
+            return "Vertex{" +
+                "row=" + this.row  +
+                ", col=" + this.col +
+                ", isAccessible=" + this.isAccessible +
+                ", isProcessed=" + this.isProcessed +
+                ", predcessorRow=" + this.predcessorRow +
+                ", predcessorCol=" + this.predcessorCol +
+                ", distance=" + this.distance +
+                '}';
+        }
+
+    }    
+    
+    class PriorityQueue{
+        constructor(){
+            this.values = [];
+        }
+
+        enqueue(node){
+            var flag = false;
+            for (let i=0; i<this.values.length; i++) {
+                if (this.values[i].distance > node.distance) {
+                    this.values.splice(i, 0, node)
+                    flag = true;
+                    break;
+                }
+            }
+            if(!flag){
+                this.values.push(node)
+            }
+        }
+
+        dequeue(){
+            return this.values.shift()
+        }
+
+        size(){
+            return this.values.length;
+        }
+        
+        isEmpty() {
+            return this.size() === 0;
+        }
+
+        removeIf(predicate) {
+            for (let i = 0; i < this.values.length; i++) {
+                if (predicate(this.values[i])) {
+                    this.values.splice(i, 1)
+                }
+            }
+        }
+    }    
+
+</script>
+</html>
