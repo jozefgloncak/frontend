@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <div id="examples"></div>
+
+</body>
+<script>
+    
+    document.addEventListener("onload", generateExample("examples", 20));
+
+    function generateCouple() {
+        //ones
+        let digits = _generateDigitCouple()
+        let num1 = digits[0]
+        let num2 = digits[1];
+
+        //tens
+        digits = _generateDigitCouple()
+        num1 += digits[0] * 10
+        num2 += digits[1] * 10;
+
+        //hundreds
+        digits = _generateDigitCouple(new Set([0]))
+        num1 += digits[0] * 100
+        num2 += digits[1] * 100;
+
+        let arr = [];
+        arr.push(Math.min(num1, num2));
+        arr.push(Math.max(num1, num2));
+        
+        return arr;
+    }
+
+    function generateExample(elId, count) {
+        let parentElement = document.querySelector("#" + elId)
+        let divEl = null;
+        for (let i = 0; i < count; i++) {
+            if (i % 2 == 0) {
+                divEl = document.createElement("div");
+            }
+            let couple = generateCouple();
+            divEl.innerHTML = divEl.innerHTML  + "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + couple[1] + " - " + couple[0] + " = ";
+            parentElement.appendChild(divEl)
+            
+        }
+    }
+
+    function generateDigitWithExclusion(exclusionSet) {
+        let digit = null;
+        while (true) {
+            digit = Math.floor(Math.random() * 10);
+            if (!exclusionSet) {
+                return digit;
+            }
+            if (!exclusionSet.has(digit)) {
+                return digit;
+            }
+        }
+    }
+
+    function _generateDigitCouple(exclude) {
+        let digit1 = generateDigitWithExclusion(exclude); 
+        let digit2 = generateDigitWithExclusion(exclude);
+        let result = [];
+        result.push(digit1);
+        result.push(digit2);
+        return result;
+    }
+</script>
+</html>
