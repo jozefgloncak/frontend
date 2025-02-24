@@ -12,62 +12,109 @@
         .tensAndOnesSmaller {
             color: red;
         }
+        td {
+            font-size: 15px;
+        }
     </style>
-    <input id="generateBtn" type="button" value="generate" />
-    <input id="passThrough10Chb" type="checkbox" >uprednostňuj prechod cez desiatku</input>
+    <input id="generateBtn" type="button" value="generate" /><br />
+    počet príkladov (examples count): <input id="examplesCountIn" type="input" value="20" /><br />
+    počet stĺpcov (columns count): <input id="columnsCountIn" type="input" value="2" /><br />
+    pravdepodobnosť prechodu cez desiatku <0;1> (Probability of pass through 10s):     
+    <input id="passThrough10Range" type="range" min="0" max="1" step="0.05" value="0" />
+    
+    <span id="passThrough10Value">0</span>
     <table id="examples"></table>
+    <div id="result"></div>
 
 </body>
 <script>
 
+    function handleRangeChange() {
+        document.querySelector("#passThrough10Value").innerHTML =
+            document.querySelector("#passThrough10Range").value;
+    }    
+    
+    document.addEventListener("DOMContentLoaded", handleRangeChange)
+    
+    document.querySelector("#passThrough10Range").addEventListener("input", handleRangeChange)
+    
     document.querySelector("#generateBtn").addEventListener("click", () => {
-        let passThrough10El = document.querySelector("#passThrough10Chb");
-        console.log('generovanie prikladov na odcitanie ' + (passThrough10El.checked ? "s" : "bez") + " prechodu cez 10-tku")
-        generateExample("examples", 20, passThrough10El.checked);
+        let passThrough10El = document.querySelector("#passThrough10Range");
+        let examplesCountInEl = document.querySelector("#examplesCountIn");
+        let columnsCountInEl = document.querySelector("#columnsCountIn");
+        
+        examplesCount = examplesCountInEl.value ? examplesCountInEl.value : 20;
+        columnsCount = columnsCountInEl.value ? columnsCountInEl.value : 2;
+        console.log('generovanie ', examplesCount, ' prikladov na odcitanie do ', columnsCount + 
+            ' stlpcov s pravdepodobnosťou prechodu cez 10-tku ' + passThrough10El.value)
+
+        generateExample("examples", examplesCount, columnsCount, passThrough10El.value);
     });   
 
-    function generateExample(elId, count, passThrough10) {
+    function generateExample(elId, count, columns, passThrough10Probability) {
         let parentElement = document.querySelector("#" + elId)
         parentElement.innerHTML = "";
         let trEl = null;
+        let passThrough10sCount = 0;
         for (let i = 0; i < count; i++) {
-            if (i % 2 == 0) {
+            if (i % columns == 0) {
                 trEl = document.createElement("tr");
                 parentElement.appendChild(trEl)
             }
-            let couple = generateCouple(passThrough10);
+
+            let couple = generateCouple(Math.random() <= passThrough10Probability);
+
+            let cutTo10sNum1 = _extractTensAndOnes(couple[0])
+            let cutTo10sNum2 =  _extractTensAndOnes(couple[1])
+            //if equal numbers an position of 10s and 1s and should be pass through 10s => generate one more time
+            if (cutTo10sNum1 == cutTo10sNum2) {
+                i--;
+                continue;
+            }
+
+            //if random generated probability is lower then user specified => example with passs through 10
+            let isPassThrough10s = Math.random() <= passThrough10Probability
+            if (isPassThrough10s) {
+                passThrough10sCount++;
+            }
 
             //cell with example
             let tdEl = document.createElement("td");
-            tdEl.innerHTML = couple[1] + " - " + couple[0] + " = ";
-            if (_extractTensAndOnes(couple[1]) < _extractTensAndOnes(couple[0])) {
+            tdEl.innerHTML = couple[0] + " - " + couple[1] + " = ";
+            if (cutTo10sNum1 < cutTo10sNum2) {
                 tdEl.innerHTML = "<span class='tensAndOnesSmaller'>" + tdEl.innerHTML + "</span>";                
-            } 
+            }
+
             trEl.appendChild(tdEl);
             
             //cell with result
             tdEl = document.createElement("td");
-            tdEl.innerHTML = "<span class='invisible'>" + (couple[1] - couple[0]) + "</span>"
+            tdEl.innerHTML = "<span class='invisible'>" + (couple[0] - couple[1]) + "</span>"
             trEl.appendChild(tdEl);
             
         }
+        document.querySelector("#result").innerHTML = passThrough10sCount/count;
+        
     }
 
 
     function generateCouple(passThrough10) {
         //ones
-        let digits = _generateDigitCouple(passThrough10)
-        let num1 = digits[0]
-        let num2 = digits[1];
+        let digits = _generateDigitCouple()
+        
+        let num1 = passThrough10 ? digits[0] : digits[1];
+        let num2 = passThrough10 ? digits[1] : digits[0];
 
         //tens
-        digits = _generateDigitCouple(passThrough10)
-        num1 += digits[0] * 10
-        num2 += digits[1] * 10;
+        digits = _generateDigitCouple()
+        num1 += (passThrough10 ? digits[0] : digits[1]) * 10;
+        num2 += (passThrough10 ? digits[1] : digits[0]) * 10;
 
+
+        
         //hundreds
-        digits = _generateDigitCouple(passThrough10, new Set([0]))
-        if (passThrough10 && digits[1] === digits[0]) {
+        digits = _generateDigitCouple(new Set([0]))
+        if (digits[1] === digits[0]) {
             if (digits[1] !== 9) {
                 digits[1] = ++digits[1]; 
             } else {
@@ -78,9 +125,8 @@
         num2 += digits[0] * 100;
 
         let arr = [];
-        arr.push(num2);
         arr.push(num1);
-        arr.sort();
+        arr.push(num2);
 
         return arr;
     }    
@@ -98,15 +144,13 @@
         }
     }
 
-    function _generateDigitCouple(returnAsc, exclude) {
+    function _generateDigitCouple(exclude) {
         let digit1 = generateDigitWithExclusion(exclude); 
         let digit2 = generateDigitWithExclusion(exclude);
         let result = [];
         result.push(digit1);
         result.push(digit2);
-        if (returnAsc) {
-            result.sort();
-        }
+        result.sort();
         return result;
     }
 
