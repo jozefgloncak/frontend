@@ -5,50 +5,86 @@
     <title>Title</title>
 </head>
 <body>
-    <div id="examples"></div>
+    <style>
+        .invisible {
+            color: white;
+        }
+        .tensAndOnesSmaller {
+            color: red;
+        }
+    </style>
+    <input id="generateBtn" type="button" value="generate" />
+    <input id="passThrough10Chb" type="checkbox" >uprednostňuj prechod cez desiatku</input>
+    <table id="examples"></table>
 
 </body>
 <script>
-    
-    document.addEventListener("onload", generateExample("examples", 20));
 
-    function generateCouple() {
-        //ones
-        let digits = _generateDigitCouple()
-        let num1 = digits[0]
-        let num2 = digits[1];
+    document.querySelector("#generateBtn").addEventListener("click", () => {
+        let passThrough10El = document.querySelector("#passThrough10Chb");
+        console.log('generovanie prikladov na odcitanie ' + (passThrough10El.checked ? "s" : "bez") + " prechodu cez 10-tku")
+        generateExample("examples", 20, passThrough10El.checked);
+    });   
 
-        //tens
-        digits = _generateDigitCouple()
-        num1 += digits[0] * 10
-        num2 += digits[1] * 10;
-
-        //hundreds
-        digits = _generateDigitCouple(new Set([0]))
-        num1 += digits[0] * 100
-        num2 += digits[1] * 100;
-
-        let arr = [];
-        arr.push(Math.min(num1, num2));
-        arr.push(Math.max(num1, num2));
-        
-        return arr;
-    }
-
-    function generateExample(elId, count) {
+    function generateExample(elId, count, passThrough10) {
         let parentElement = document.querySelector("#" + elId)
-        let divEl = null;
+        parentElement.innerHTML = "";
+        let trEl = null;
         for (let i = 0; i < count; i++) {
             if (i % 2 == 0) {
-                divEl = document.createElement("div");
+                trEl = document.createElement("tr");
+                parentElement.appendChild(trEl)
             }
-            let couple = generateCouple();
-            divEl.innerHTML = divEl.innerHTML  + "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + couple[1] + " - " + couple[0] + " = ";
-            parentElement.appendChild(divEl)
+            let couple = generateCouple(passThrough10);
+
+            //cell with example
+            let tdEl = document.createElement("td");
+            tdEl.innerHTML = couple[1] + " - " + couple[0] + " = ";
+            if (_extractTensAndOnes(couple[1]) < _extractTensAndOnes(couple[0])) {
+                tdEl.innerHTML = "<span class='tensAndOnesSmaller'>" + tdEl.innerHTML + "</span>";                
+            } 
+            trEl.appendChild(tdEl);
+            
+            //cell with result
+            tdEl = document.createElement("td");
+            tdEl.innerHTML = "<span class='invisible'>" + (couple[1] - couple[0]) + "</span>"
+            trEl.appendChild(tdEl);
             
         }
     }
 
+
+    function generateCouple(passThrough10) {
+        //ones
+        let digits = _generateDigitCouple(passThrough10)
+        let num1 = digits[0]
+        let num2 = digits[1];
+
+        //tens
+        digits = _generateDigitCouple(passThrough10)
+        num1 += digits[0] * 10
+        num2 += digits[1] * 10;
+
+        //hundreds
+        digits = _generateDigitCouple(passThrough10, new Set([0]))
+        if (passThrough10 && digits[1] === digits[0]) {
+            if (digits[1] !== 9) {
+                digits[1] = ++digits[1]; 
+            } else {
+                digits[0] = --digits[0]; 
+            }
+        }
+        num1 += digits[1] * 100
+        num2 += digits[0] * 100;
+
+        let arr = [];
+        arr.push(num2);
+        arr.push(num1);
+        arr.sort();
+
+        return arr;
+    }    
+    
     function generateDigitWithExclusion(exclusionSet) {
         let digit = null;
         while (true) {
@@ -62,13 +98,26 @@
         }
     }
 
-    function _generateDigitCouple(exclude) {
+    function _generateDigitCouple(returnAsc, exclude) {
         let digit1 = generateDigitWithExclusion(exclude); 
         let digit2 = generateDigitWithExclusion(exclude);
         let result = [];
         result.push(digit1);
         result.push(digit2);
+        if (returnAsc) {
+            result.sort();
+        }
         return result;
+    }
+
+    /**
+     * From number {@code num} extract tens and ones
+     * @param num
+     * @returns {number}
+     * @private
+     */
+    function _extractTensAndOnes(num) {
+        return num - Math.floor(num/100)*100
     }
 </script>
 </html>
